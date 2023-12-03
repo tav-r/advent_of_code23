@@ -1,6 +1,7 @@
 import Data.Vect
 import Data.Maybe
 import Data.String
+import Debug.Trace
 import System
 
 
@@ -8,6 +9,7 @@ import System
 
 
 -- helper functions
+
 getNLines : (n : Nat) -> IO (Vect n String)
 getNLines 0 = do
   pure []
@@ -31,29 +33,21 @@ enumerate xs n = zip (nums (length xs) n) xs
     nums n m  = take n [m..]
 
 
--- logic
-
-record CubeSet where
-  constructor MkCubeSet
-  red : Nat
-  green : Nat
-  blue : Nat
+--- string stuff
 
 
-availableCubes : CubeSet
-availableCubes = MkCubeSet 12 13 14
+strip : List Char -> List Char
+strip = reverse . dropWhile isSpace . reverse . dropWhile isSpace
 
 
-readTo : List Char -> Char -> Maybe (List Char, List Char)
-readTo [] c = Nothing
-readTo (x :: xs) c = if x == c then Just ([], xs) else push x <$> (readTo xs c)
-  where
-    push : Char -> (List Char, List Char) -> (List Char, List Char)
-    push c (x, y) = (c :: x, y)
+startsWith : List Char -> List Char -> Bool
+startsWith [] ds = False
+startsWith (x :: xs) [] = True
+startsWith (x :: xs) (y :: ys) = if x == y then startsWith xs ys else False
 
 
-test1 : readTo (unpack "foo#bar") '#' = Just (unpack "foo", unpack "bar")
-test1 = Refl
+endsWith : List Char -> List Char -> Bool
+endsWith cs ds = startsWith (reverse cs) (reverse ds)
 
 
 splitAll : List Char -> Char -> List (List Char)
@@ -71,36 +65,42 @@ splitAll (x :: xs) c = if x == c then [] :: (splitAll xs c) else push x (splitAl
     push c css = fromMaybe [[c]] (insertAtHead c css)
 
 
-strip : List Char -> List Char
-strip = reverse . dropWhile isSpace . reverse . dropWhile isSpace
+readTo : List Char -> Char -> Maybe (List Char, List Char)
+readTo [] c = Nothing
+readTo (x :: xs) c = if x == c then Just ([], xs) else push x <$> (readTo xs c)
+  where
+    push : Char -> (List Char, List Char) -> (List Char, List Char)
+    push c (x, y) = (c :: x, y)
 
 
-startsWith : List Char -> List Char -> Bool
-startsWith [] ds = False
-startsWith (x :: xs) [] = True
-startsWith (x :: xs) (y :: ys) = if x == y then startsWith xs ys else False
+-- type definitions
+
+record CubeSet where
+  constructor MkCubeSet
+  red : Nat
+  green : Nat
+  blue : Nat
 
 
-endsWith : List Char -> List Char -> Bool
-endsWith cs ds = startsWith (reverse cs) (reverse ds)
-
-endsWithTest1 : endsWith (unpack "foo bar") (unpack "bar") = True
-endsWithTest1 = Refl
+Show CubeSet where
+  show (MkCubeSet red green blue) =
+    joinBy "" ["CubeSet(", (show red), ",", (show green), ",", (show blue), ")"]
 
 
-getCubeSet : List Char -> Maybe (List CubeSet)
-getCubeSet = ?getCubeSet_rhs . (flip splitAll) ','
+-- logic
 
+--- parsing
 
-parseLine : List Char -> Maybe (List CubeSet)
-parseLine str = do
-  (_, str) <- readTo str ' '
-  (gameNrStr, str) <- readTo str ':'
-  gameNr <- (parsePositive . pack) gameNrStr
+buildCubeSet : List Char -> Maybe CubeSet
+buildCubeSet str = do
+  (numStr, colorStr) <- readTo str ' '
+  num <- (parsePositive . pack) numStr
 
-  let cubeSetStrs = strip <$> splitAll str ';'
+  let cs = if colorStr == (unpack "red") then MkCubeSet num 0 0
+                                         else if colorStr == (unpack "green") then MkCubeSet 0 num 0
+                                         else MkCubeSet 0 0 num
 
-  ?a
+  Just cs
 
 
 buildMaxCubeSet : List CubeSet -> CubeSet
@@ -117,6 +117,27 @@ buildMaxCubeSet = foldr step (MkCubeSet 0 0 0)
 
         c : Nat
         c = max blue i
+
+
+getCubeSet : List Char -> Maybe CubeSet
+getCubeSet = map buildMaxCubeSet . transposeList . map buildCubeSet . map strip . (flip splitAll) ','
+
+
+parseLine : List Char -> Maybe (List CubeSet)
+parseLine str = do
+  (_, str) <- readTo str ' '
+  (gameNrStr, str) <- readTo str ':'
+  gameNr <- (parsePositive . pack) gameNrStr
+
+  let cubeSetStrs = strip <$> splitAll str ';'
+
+  transposeList $ (getCubeSet <$> cubeSetStrs) 
+
+
+--- calculations
+
+availableCubes : CubeSet
+availableCubes = MkCubeSet 12 13 14
 
 
 testPossible : CubeSet -> Bool
@@ -139,7 +160,7 @@ testLine = map (testPossible . buildMaxCubeSet) . parseLine . unpack
 
 
 getSumPlausibleGames : List String -> Maybe Nat
-getSumPlausibleGames xs =  process (testLine <$> xs)
+getSumPlausibleGames = process . map testLine
   where
     sumUpIndices : List Bool -> Nat
     sumUpIndices = sum . (map fst) . (filter snd) . (flip enumerate 1) 
@@ -147,6 +168,8 @@ getSumPlausibleGames xs =  process (testLine <$> xs)
     process : List (Maybe Bool) -> Maybe Nat
     process = map sumUpIndices . transposeList
 
+
+-- main...
 
 main : IO ()
 main = do
@@ -159,5 +182,5 @@ main = do
   let res = getSumPlausibleGames $ toList inputLines
 
   case res of
-    Nothing => printLn "Error reading numbers"
+    Nothing => printLn "Error reading input"
     Just n => printLn $ n
