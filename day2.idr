@@ -155,8 +155,16 @@ testPossible (MkCubeSet red green blue) = case (red <= a, green <= b, blue <= c)
       c = availableCubes.blue
 
 
+calculatePower : CubeSet -> Nat
+calculatePower (MkCubeSet red green blue) = red * green * blue
+
+
 testLine : String -> Maybe Bool
 testLine = map (testPossible . buildMaxCubeSet) . parseLine . unpack
+
+
+powerOfLine : String -> Maybe Nat
+powerOfLine = map (calculatePower . buildMaxCubeSet) . parseLine . unpack
 
 
 getSumPlausibleGames : List String -> Maybe Nat
@@ -179,8 +187,16 @@ main = do
 
   inputLines <- getNLines nlines
 
-  let res = getSumPlausibleGames $ toList inputLines
+  let res1 = getSumPlausibleGames $ toList inputLines
 
-  case res of
+  case res1 of
+    Nothing => printLn "Error processing input"
+    Just n => printLn $ n
+
+  let res2 =  (map sum . transposeList . map powerOfLine . toList) inputLines
+
+  case res2 of
     Nothing => printLn "Error reading input"
     Just n => printLn $ n
+
+ 
