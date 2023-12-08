@@ -1,3 +1,4 @@
 *
 !*.idr
 !.gitignore
+!*.hs
