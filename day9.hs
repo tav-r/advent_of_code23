@@ -24,6 +24,6 @@ solvePart2 = sum . map (predictNextSummand . reverse . parseLine)
 main :: IO ()
 main = do
     lines <- lines <$> getContents
-    print $ solvePart1 lines 
 
+    print $ solvePart1 lines 
     print $ solvePart2 lines
